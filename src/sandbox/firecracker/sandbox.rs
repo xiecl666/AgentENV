@@ -714,9 +714,8 @@ impl FirecrackerSandbox {
                 .common()
                 .ublk_config
                 .as_ref()
-                .and_then(|config| match &config.backend {
-                    UblkBackend::Overlaybd(source) => Some(source),
-                    UblkBackend::Cow => None,
+                .map(|config| match &config.backend {
+                    UblkBackend::Overlaybd(source) => source,
                 })
                 .context("overlaybd snapshot requires overlaybd-backed ublk config")?;
             let rootfs_runtime = self
@@ -758,17 +757,15 @@ impl FirecrackerSandbox {
         // Rewrite the overlaybd backend's image config path to point at the snapshot's rootfs.
         // So that the resumed ublk device uses the captured rootfs layers instead of the original ones.
         if let Some(ublk_config) = snapshot_common.ublk_config.as_mut() {
-            if let UblkBackend::Overlaybd(source) = &mut ublk_config.backend {
-                rootfs_read_only = source.read_only;
-                source.image_config_path = base_rootfs_path.clone();
-            }
+            let UblkBackend::Overlaybd(source) = &mut ublk_config.backend;
+            rootfs_read_only = source.read_only;
+            source.image_config_path = base_rootfs_path.clone();
         }
         let runtime_upper_mode = snapshot_common
             .ublk_config
             .as_ref()
-            .and_then(|config| match &config.backend {
-                UblkBackend::Overlaybd(source) => Some(source.runtime_upper_mode),
-                UblkBackend::Cow => None,
+            .map(|config| match &config.backend {
+                UblkBackend::Overlaybd(source) => source.runtime_upper_mode,
             })
             .unwrap_or(overlaybd::config::UpperMode::LogStructured);
         snapshot_common.rootfs_image_config = Some(OverlaybdConfig {
@@ -1444,11 +1441,8 @@ impl FirecrackerSandbox {
         self.link_tools_drive(&config.common, fc_cwd)?;
 
         // ── User image: restore overlaybd via ublk ──
-        if let Some(ref ublk_cfg) = config.common.ublk_config {
+        if config.common.ublk_config.is_some() {
             let user_image_symlink = fc_cwd.join(USER_ROOTFS_DRIVE_PATH);
-            let UblkBackend::Overlaybd(_) = &ublk_cfg.backend else {
-                bail!("resume with tools drive requires overlaybd ublk backend");
-            };
             let global_cfg_path = global_config.ublk.overlaybd.global_config_path.clone();
             let runtime_dir = fc_cwd.join("overlaybd");
             let runtime_device = UblkDeviceManager::global()

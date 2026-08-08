@@ -6,14 +6,12 @@ use tracing_log::log::LevelFilter;
 
 use storage_util::io_ring::spawn_io_ring_worker;
 use uvm_ublk::{
-    delete_dev, setup_tracing, wait_for_ublk_dev, BasicCowConfig, BasicCowTarget,
-    UVMUblkCtrlBuilder, UVMUblkDevBuilder,
+    delete_dev, setup_tracing, wait_for_ublk_dev, UVMUblkCtrlBuilder, UVMUblkDevBuilder,
 };
 use uvm_ublk::{OverlaybdTarget, OverlaybdTargetConfig};
 
 #[derive(Debug, Subcommand)]
 enum Device {
-    Cow(BasicCowConfig),
     Overlaybd(OverlaybdTargetConfig),
 }
 
@@ -59,24 +57,17 @@ struct CreateArgs {
     /// Store the path to the pid file of the device.
     #[arg(long)]
     pid_file: Option<PathBuf>,
-    /// Enable zero copy
-    #[arg(long)]
-    zero_copy: bool,
     /// The device id. it is the user's responsibility to prevent
     /// id conflict (if `dev_id` already exists, the process will exit).
     dev_id: u32,
 }
 
 async fn create_device(args: CreateArgs, device: Device) -> Result<()> {
-    if matches!(&device, Device::Overlaybd(_)) && args.zero_copy {
-        bail!("overlaybd target does not support --zero-copy yet");
-    }
     if args.nr_queues != 1 {
         bail!("currently only support single queue");
     }
     let (ctrl_ring, _) = spawn_io_ring_worker::<io_uring::squeue::Entry128>(0);
     let name = match &device {
-        Device::Cow(_) => "cow-blk",
         Device::Overlaybd(_) => "overlaybd-blk",
     };
     let ctrl = UVMUblkCtrlBuilder::new()
@@ -84,22 +75,22 @@ async fn create_device(args: CreateArgs, device: Device) -> Result<()> {
         .depth(args.depth)
         .max_io_buf_bytes(args.io_buf_size_kb * 1024)
         .dev_id(args.dev_id)
-        .zero_copy(args.zero_copy)
         .name(name)
         .build(ctrl_ring)
         .context("build ctrl")?;
     match device {
-        Device::Cow(dev_args) => {
-            let tgt = BasicCowTarget::new(&dev_args).context("create cow target")?;
+        Device::Overlaybd(dev_args) => {
+            let tgt = OverlaybdTarget::from_config(&dev_args)
+                .await
+                .expect("create overlaybd target");
             let mut dev = UVMUblkDevBuilder::new(ctrl)
                 .set_target(tgt)
                 .build()
                 .await
-                .expect("create cow dev");
-            dev.start().await.expect("start cow dev");
+                .expect("create overlaybd dev");
+            dev.start().await.expect("start overlaybd dev");
 
             wait_for_ublk_dev(dev.dev_id()).expect("wait for ublkb device to show up");
-            // Write to stdout when ready
             println!("ready");
             std::io::stdout().flush().expect("flush ready notification");
             dev.wait_for_bg_tasks().await;
@@ -119,22 +110,6 @@ async fn create_device(args: CreateArgs, device: Device) -> Result<()> {
             //    io uring cleanup function has to wait STOP_DEV to be done. The STOP_DEV
             //    cannot be finished, as it need to acquire folio lock to flush dirty page, but
             //    the lock is hold by sleeping flush worker.
-        }
-        Device::Overlaybd(dev_args) => {
-            let tgt = OverlaybdTarget::from_config(&dev_args)
-                .await
-                .expect("create overlaybd target");
-            let mut dev = UVMUblkDevBuilder::new(ctrl)
-                .set_target(tgt)
-                .build()
-                .await
-                .expect("create overlaybd dev");
-            dev.start().await.expect("start overlaybd dev");
-
-            wait_for_ublk_dev(dev.dev_id()).expect("wait for ublkb device to show up");
-            println!("ready");
-            std::io::stdout().flush().expect("flush ready notification");
-            dev.wait_for_bg_tasks().await;
         }
     }
     Ok(())

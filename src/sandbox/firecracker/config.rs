@@ -219,8 +219,10 @@ impl FirecrackerCommonConfig {
 
         if config.ublk.enabled {
             match config.ublk.device_type.trim().to_ascii_lowercase().as_str() {
-                "" | "cow" => common.ublk_config = Some(UblkConfig::cow()),
                 "overlaybd" => {}
+                "cow" => bail!(
+                    "ublk.device_type = \"cow\" is no longer supported; set ublk.device_type = \"overlaybd\""
+                ),
                 other => bail!("unsupported ublk.device_type: {}", other),
             };
         }
@@ -285,13 +287,12 @@ impl FirecrackerCommonConfig {
             anyhow::bail!("rootfs virtual size must be non-zero");
         }
         if let Some(ublk_config) = &self.ublk_config {
-            if let UblkBackend::Overlaybd(overlaybd_cfg) = &ublk_config.backend {
-                if !overlaybd_cfg.image_config_path.exists() {
-                    anyhow::bail!(
-                        "overlaybd image config not found at {}",
-                        overlaybd_cfg.image_config_path.display()
-                    );
-                }
+            let UblkBackend::Overlaybd(overlaybd_cfg) = &ublk_config.backend;
+            if !overlaybd_cfg.image_config_path.exists() {
+                anyhow::bail!(
+                    "overlaybd image config not found at {}",
+                    overlaybd_cfg.image_config_path.display()
+                );
             }
         }
         Ok(())

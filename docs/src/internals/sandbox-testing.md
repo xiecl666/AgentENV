@@ -297,7 +297,7 @@ enabled = false
   - `daemon_binary_path`: Optional path to `uvm-ublk-daemon`.
   - `daemon_socket_path`: Optional unix socket path for daemon RPCs.
   - `daemon_log_path`: Optional log file path for the daemon process.
-  - `device_type`: `cow` or `overlaybd`.
+  - `device_type`: `overlaybd` (the only supported value).
 
 - `[ublk.overlaybd]`
   - `global_config_path`: path to the generated overlaybd runtime config.

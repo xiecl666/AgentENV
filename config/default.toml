@@ -171,7 +171,7 @@ p2p_enabled = true
 [ublk]
 enabled = true
 daemon_metrics_listen_addr = "0.0.0.0:9103"
-device_type = "overlaybd" # or "cow"
+device_type = "overlaybd"
 
 [ublk.overlaybd]
 read_only = false

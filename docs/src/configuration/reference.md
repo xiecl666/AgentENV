@@ -443,7 +443,7 @@ Optional userspace block device configuration. When enabled, rootfs is served th
 | `daemon_socket_path` | string | `"$AENV_RUNTIME/ublk-daemon.sock"` | Unix socket path used by the daemon |
 | `daemon_log_path` | string | `"$AENV_HOME/logs/ublk-daemon.log"` | File path for daemon logs; deployments are responsible for rotation and retention |
 | `daemon_metrics_listen_addr` | string | `"0.0.0.0:9103"` | HTTP listen address for daemon Prometheus metrics; empty string disables it |
-| `device_type` | string | `"overlaybd"` | `"cow"` (copy-on-write) or `"overlaybd"` (layered image) |
+| `device_type` | string | `"overlaybd"` | Block device backend; `"overlaybd"` (layered image) is the only supported value |
 
 Environment variable override:
 

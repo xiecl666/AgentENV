@@ -29,7 +29,6 @@ pub struct UblkConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UblkBackend {
-    Cow,
     Overlaybd(OverlaybdConfig),
 }
 
@@ -49,12 +48,6 @@ pub(crate) struct OverlaybdRuntimeDevice {
 }
 
 impl UblkConfig {
-    pub fn cow() -> Self {
-        Self {
-            backend: UblkBackend::Cow,
-        }
-    }
-
     pub fn overlaybd(image_config_path: PathBuf, read_only: bool) -> Self {
         Self::overlaybd_with_runtime_upper_mode(
             image_config_path,
